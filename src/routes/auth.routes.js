@@ -10,4 +10,10 @@ const authRouter=Router();
  */
 authRouter.post("/register",authController.register)
 
+/**
+ * POST /api/auth/get-me
+ * @description Get the authenticated user's information
+*/
+authRouter.post("/get-me",authController.getMe)
+
 export default authRouter;
