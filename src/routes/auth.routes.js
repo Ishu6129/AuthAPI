@@ -16,4 +16,16 @@ authRouter.post("/register",authController.register)
 */
 authRouter.post("/get-me",authController.getMe)
 
+/**
+ * GET /api/auth/refresh-token
+ * @description Refresh the access token using the refresh token
+ */
+authRouter.get("/refresh",authController.refreshToken)
+
+/**
+ * POST /api/auth/logout
+ * @description Logout the user by revoking the refresh token
+ */
+authRouter.post("/logout",authController.logout)
+
 export default authRouter;

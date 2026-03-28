@@ -2,8 +2,10 @@ import User from '../models/user.model.js';
 import crypto from 'crypto';
 import jwt from 'jsonwebtoken';
 import config from '../config/config.js';
+import sessionModel from '../models/session.model.js';
 
 export async function register(req, res) {
+    console.log(req.headers);
     const {username,email,password}=req.body;
 
     const isAlreadyExist=await User.findOne({
@@ -16,29 +18,50 @@ export async function register(req, res) {
             message:"Username or email already exist"
         })
     }
+
     const hashPassword=crypto.createHash("sha256").update(password).digest("hex");
     const newUser=new User({
         username,email,password:hashPassword
     })
     await newUser.save();
-    const token=jwt.sign({id:newUser._id},process.env.JWT_SECRET,{expiresIn:"1d"})
-    res.cookie("token",token)
+
+    
+    const refreshToken=jwt.sign({id:newUser._id},config.JWT_SECRET,{expiresIn:"7d"})
+    
+    const refreshTokenHash=crypto.createHash("sha256").update(refreshToken).digest("hex");
+    const session=new sessionModel({
+        user:newUser._id,
+        refreshToken:refreshTokenHash,
+        ip:req.ip,
+        userAgent:req.headers['user-agent']
+    })
+    await session.save();
+    
+    const accessToken=jwt.sign({id:newUser._id,sessionId:session._id},config.JWT_SECRET,{expiresIn:"15m"})
+    
+    res.cookie("refreshToken",refreshToken,{
+        httpOnly:true,
+        secure:true,
+        sameSite:"strict",
+        maxAge:7*24*60*60*1000
+    })
     res.status(201).json({
         success:true,
         message:"User registered successfully",
-        token:token
+        accessToken
     })
+
 }
 export async function getMe(req, res) {
-    const token =req.headers.authorization?.split(" ")[1] || req.cookies.token;
+    const token =req.headers.authorization?.split(" ")[1];
 
     if (!token) {
         return res.status(401).json({
             success: false,
-            message: "Unauthorized"
+            message: "Token Not Found"
         });
     }
-    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    const decoded = jwt.verify(token, config.JWT_SECRET);
     const user = await User.findById(decoded.id);
     if (!user) {
         return res.status(404).json({
@@ -50,4 +73,67 @@ export async function getMe(req, res) {
         message:"user fetched successfully",
         user
     });
+}
+
+export async function refreshToken(req,res){
+    const refreshToken=req.cookies.refreshToken;
+    if(!refreshToken){
+        return res.status(401).json({
+            success:false,
+            message:"Refresh Token Not Found"
+        })
+    }
+    const decoded=jwt.verify(refreshToken,config.JWT_SECRET);
+
+    const refreshTokenHash=crypto.createHash("sha256").update(refreshToken).digest("hex");
+    const session=await sessionModel.findOne({refreshToken:refreshTokenHash,revoked:false});
+    if(!session){
+        return res.status(401).json({
+            success:false,
+            message:"Invalid Refresh Token or session Revoked"
+        })
+    }
+    const newAccessToken=jwt.sign({id:decoded.id},config.JWT_SECRET,{expiresIn:"15m"})
+    
+    const newRefreshToken=jwt.sign({id:decoded.id},config.JWT_SECRET,{expiresIn:"7d"})
+    const newRefreshTokenHash=crypto.createHash("sha256").update(newRefreshToken).digest("hex");
+    session.refreshToken=newRefreshTokenHash;
+    await session.save();
+    res.cookie("refreshToken",newRefreshToken,{
+        httpOnly:true,
+        secure:true,
+        sameSite:"strict",
+        maxAge:7*24*60*60*1000
+    })
+
+    res.status(200).json({
+        success:true,
+        newAccessToken
+    })
+}
+
+export async function logout(req,res){
+    const refreshToken=req.cookies.refreshToken;
+    if(!refreshToken){
+        return res.status(401).json({
+            success:false,
+            message:"Refresh token not found"
+        })
+    }
+    const refreshTokenHash=crypto.createHash("sha256").update(refreshToken).digest("hex");
+    const session=await sessionModel.findOne({refreshToken:refreshTokenHash,revoked:false});
+    if(!session){
+        return res.status(401).json({
+            success:false,
+            message:"Invalid Refresh Token"
+        })
+    }
+    session.revoked=true;
+    await session.save();
+
+    res.clearCookie("refreshToken");
+    res.status(200).json({
+        success:true,
+        message:"Logged out successfully"
+    })
 }
