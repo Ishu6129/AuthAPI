@@ -1,6 +1,6 @@
-import sessionModel from "../src/models/session.model.js";
+import sessionModel from "../models/session.model.js";
 import jwt from "jsonwebtoken";
-import config from "../src/config/config.js";
+import config from "../config/config.js";
 
 export async function verifyAccessToken(req, res, next) {
     const token = req.headers.authorization?.split(" ")[1];

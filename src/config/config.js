@@ -28,6 +28,10 @@ if(!process.env.REFRESH_TOKEN){
     console.error("REFRESH_TOKEN is not defined in environment variables");
     process.exit(1);
 }
+if(!process.env.REDIS_URL){
+    console.error("REDIS_URL is not defined in environment variables");
+    process.exit(1);
+}
 
 const config={
     PORT:process.env.PORT,
@@ -36,6 +40,7 @@ const config={
     EMAIL_USER:process.env.EMAIL_USER,
     CLIENT_ID:process.env.CLIENT_ID,
     CLIENT_SECRET:process.env.CLIENT_SECRET,
-    REFRESH_TOKEN:process.env.REFRESH_TOKEN
+    REFRESH_TOKEN:process.env.REFRESH_TOKEN,
+    REDIS_URL:process.env.REDIS_URL
 }
 export default config;

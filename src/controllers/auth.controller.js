@@ -4,9 +4,10 @@ import crypto from 'crypto';
 import jwt from 'jsonwebtoken';
 import config from '../config/config.js';
 import sessionModel from '../models/session.model.js';
-import {sendEmail} from '../../services/email.service.js';
+import {sendEmail} from '../services/email.service.js';
 import Otp from '../models/otp.model.js';
-import {generateOtp,getOtpHtmlContent,getLoginAlertHtmlContent} from '../../utils/utils.js';
+import {generateOtp,getOtpHtmlContent,getLoginAlertHtmlContent} from '../utils/utils.js';
+import { emailQueue } from '../queues/emailQueue.js';
 
 export async function register(req, res) {
     console.log(req.headers);
@@ -49,7 +50,12 @@ export async function register(req, res) {
         },
         { upsert: true, new: true }
     );
-    await sendEmail(email,"Verify your email",`Your OTP is ${otp}`,html);
+    await emailQueue.add('sendEmail', {
+        to: email,
+        subject: "Verify your email",
+        text: `Your OTP is ${otp}`,
+        html: html
+    });
     res.status(201).json({
         success:true,
         message:"User registered successfully",
@@ -107,7 +113,12 @@ export async function login(req,res){
     })
 
     const loginAlertHtml=getLoginAlertHtmlContent();
-    await sendEmail(user.email,"New Login Alert","A new login to your account was detected.",loginAlertHtml);
+    await emailQueue.add('sendEmail', {
+        to: user.email,
+        subject: "New Login Alert",
+        text: "A new login to your account was detected.",
+        html: loginAlertHtml
+    });
 
     res.status(200).json({
         success:true,
@@ -224,7 +235,12 @@ export async function requestAnotherOtp(req,res){
         },
         { upsert: true, new: true }
     );
-    await sendEmail(email,"Your new OTP code","Here is your new OTP code to verify your email address.",html);
+    await emailQueue.add('sendEmail', {
+        to: email,
+        subject: "Your new OTP code",
+        text: "Here is your new OTP code to verify your email address.",
+        html: html
+    });
     res.status(200).json({
         success:true,
         message:"New OTP sent to your email"
