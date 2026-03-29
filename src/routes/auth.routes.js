@@ -1,31 +1,37 @@
-import {Router} from "express";
+import { Router } from "express";
 import * as authController from "../controllers/auth.controller.js";
+import { verifyAccessToken } from "../controllers/auth.controller.js";
 
-const authRouter=Router();
-
+const authRouter = Router();
 
 /**
  * POST /api/auth/register
- * @description Register a new user
- */
-authRouter.post("/register",authController.register)
-
-/**
- * POST /api/auth/get-me
- * @description Get the authenticated user's information
 */
-authRouter.post("/get-me",authController.getMe)
+authRouter.post("/register", authController.register);
 
 /**
- * GET /api/auth/refresh-token
- * @description Refresh the access token using the refresh token
- */
-authRouter.get("/refresh",authController.refreshToken)
+ * POST /api/auth/login
+*/
+authRouter.post("/login", authController.login);
+
+/**
+ * GET /api/auth/me
+*/
+authRouter.get("/get-me", verifyAccessToken, authController.getMe);
+
+/**
+ * POST /api/auth/refresh
+*/
+authRouter.post("/refresh", authController.refreshToken);
 
 /**
  * POST /api/auth/logout
- * @description Logout the user by revoking the refresh token
- */
-authRouter.post("/logout",authController.logout)
+*/
+authRouter.post("/logout",verifyAccessToken,authController.logout);
+
+/**
+ * POST /api/auth/logout-all
+*/
+authRouter.post("/logout-all",verifyAccessToken,authController.logoutAll);
 
 export default authRouter;
