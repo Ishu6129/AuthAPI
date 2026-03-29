@@ -1,6 +1,6 @@
 import { Router } from "express";
 import * as authController from "../controllers/auth.controller.js";
-import { verifyAccessToken } from "../controllers/auth.controller.js";
+import {verifyAccessToken}  from "../../middleware/verifyAccessToken.js";
 
 const authRouter = Router();
 
@@ -33,5 +33,15 @@ authRouter.post("/logout",verifyAccessToken,authController.logout);
  * POST /api/auth/logout-all
 */
 authRouter.post("/logout-all",verifyAccessToken,authController.logoutAll);
+
+/**
+ * POST /api/auth/verify-email
+*/
+authRouter.post("/verify-email",authController.verifyEmail);
+
+/**
+ * POST /api/auth/request-new-otp
+*/
+authRouter.post("/new-otp",authController.requestAnotherOtp);
 
 export default authRouter;

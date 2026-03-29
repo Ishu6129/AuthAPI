@@ -18,6 +18,10 @@ const userSchema=new mongoose.Schema({
         type:String,
         required:[true,"Password is required"],
         select:false
+    },
+    verified:{
+        type:Boolean,
+        default:false
     }
 })
 const User=mongoose.model("user",userSchema)
