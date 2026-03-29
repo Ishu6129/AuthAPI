@@ -1,4 +1,5 @@
 import User from '../models/user.model.js';
+import bcrypt from 'bcryptjs';
 import crypto from 'crypto';
 import jwt from 'jsonwebtoken';
 import config from '../config/config.js';
@@ -19,7 +20,9 @@ export async function register(req, res) {
         })
     }
 
-    const hashPassword=crypto.createHash("sha256").update(password).digest("hex");
+    const salt = await bcrypt.genSalt(10);
+    const hashPassword = await bcrypt.hash(password, salt);
+
     const newUser=new User({
         username,email,password:hashPassword
     })
@@ -61,7 +64,25 @@ export async function getMe(req, res) {
             message: "Token Not Found"
         });
     }
-    const decoded = jwt.verify(token, config.JWT_SECRET);
+
+    let decoded;
+    try {
+        decoded = jwt.verify(token, config.JWT_SECRET);
+    } catch (err) {
+        return res.status(401).json({
+            success: false,
+            message: "Invalid or expired token"
+        });
+    }
+
+    const session = await sessionModel.findById(decoded.sessionId);
+    if (!session || session.revoked) {
+        return res.status(401).json({
+            success: false,
+            message: "Session expired or revoked"
+        });
+    }
+    
     const user = await User.findById(decoded.id);
     if (!user) {
         return res.status(404).json({
