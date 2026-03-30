@@ -10,7 +10,6 @@ import {generateOtp,getOtpHtmlContent,getLoginAlertHtmlContent} from '../utils/u
 import { emailQueue } from '../queues/emailQueue.js';
 
 export async function register(req, res) {
-    console.log(req.headers);
     const {username,email,password}=req.body;
     if (!username || !email || !password) {
         return res.status(400).json({
@@ -65,7 +64,6 @@ export async function register(req, res) {
             email:newUser.email,
             verified:newUser.verified
         }
-        // accessToken
     })
 }
 

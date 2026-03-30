@@ -5,10 +5,14 @@ import './src/queues/emailQueue.js';
 
 connectDB();
 
+
 app.get("/",(req,res)=>{
-    res.send("hello ji kese asd ho")
+    res.send("Hello World");
 })
 
+app.get("/api/health",(req,res)=>{
+    res.json({status:"ok"});
+})
 
 const port=config.PORT||3000;
 app.listen(port,()=>{
