@@ -1,149 +1,222 @@
 # 🔐 AuthAPI
 
-**A secure and scalable authentication API for modern applications.**
+**A secure, scalable, and production-ready authentication system built with Node.js and Express.**
 
-AuthAPI is a production-ready authentication system built with Node.js and Express. It provides a complete authentication flow including JWT-based authentication, refresh tokens, OTP email verification, session management, and background job processing using Redis and BullMQ.
-
+AuthAPI provides a complete authentication workflow including JWT-based authentication, refresh token rotation, OTP email verification, session tracking, and background job processing using Redis + BullMQ.
 
 ## 🚀 Features
 
-* 🔑 User Registration & Login
-* 🔐 Password Hashing with bcrypt
-* 📧 OTP-based Email Verification
-* 🔁 JWT Authentication (Access + Refresh Tokens)
-* 🧠 Session Management (stored in database)
-* 🚪 Logout (single device & all devices)
-* ⚠️ Login Alert Emails
-* 📬 Background Email Queue (BullMQ + Redis)
-* ⏳ Token Expiry & Rotation
-* 🛡️ Secure HTTP-only Cookie Handling
+### 🔑 Authentication
 
----
+* User Registration & Login
+* JWT-based Authentication (Access + Refresh Tokens)
+* Refresh Token Rotation
+* Secure Logout (single session & all sessions)
+
+### 📧 Email & OTP
+
+* OTP-based Email Verification
+* Resend OTP support
+* Password Reset via OTP
+* Login Alert Emails
+
+### 🧠 Session Management
+
+* Per-device session tracking (IP + User-Agent)
+* Refresh tokens stored securely (hashed)
+* Session revocation support
+
+### ⚙️ Background Processing
+
+* Email queue using BullMQ
+* Redis-backed job processing
+* Worker runs in same process (can be separated in production)
+
+### 🛡️ Security
+
+* Password hashing using bcrypt
+* HTTP-only secure cookies
+* Token expiration handling
+* Centralized error handling middleware
+* Rate-limited OTP attempts
+
 
 ## 🛠️ Tech Stack
 
 * Node.js
 * Express.js
 * MongoDB + Mongoose
-* JSON Web Tokens
+* JWT (jsonwebtoken)
 * bcryptjs
 * Redis
 * BullMQ
+* Nodemailer (OAuth2)
 
 
 ## 📁 Project Structure
-```
+
+```bash
 AuthAPI/
 │── src/
-│   │── config/          # Environment & DB configuration
-│   │── controllers/     # Request handlers
-│   │── middleware/      # Auth middlewares
-│   │── models/          # Mongoose models
-│   │── queues/          # Background jobs (BullMQ)
+│   │── config/          # DB & environment configs
+│   │── controllers/     # Business logic (auth flow)
+│   │── middleware/      # Auth + error handling
+│   │── models/          # Mongoose schemas
+│   │── queues/          # BullMQ queues & workers
 │   │── routes/          # API routes
-│   │── services/        # Business logic (email, etc.)
-│   │── utils/           # Helper functions
-│   │── app.js           # Express app setup
+│   │── services/        # Email service
+│   │── utils/           # Helpers (OTP, asyncHandler)
+│   │── app.js           # Express app
 │
-│── server.js            # Server entry point
+│── server.js            # Entry point
 │── .env
-│── .gitignore
 │── package.json
 │── README.md
 ```
 
+
 ## ⚙️ Environment Variables
 
-Create a `.env` file in the root directory:
+Create a `.env` file:
+
 ```
 PORT=5000
 MONGO_URL=your_mongodb_connection
 JWT_SECRET=your_secret_key
 
-# Email (OAuth2 / Gmail)
-
+# Email (Gmail OAuth2)
 EMAIL_USER=your_email
 CLIENT_ID=your_client_id
 CLIENT_SECRET=your_client_secret
 REFRESH_TOKEN=your_refresh_token
 
 # Redis
-
 REDIS_URL=your_redis_url
 ```
 
 ## ▶️ Installation & Setup
 
 ```bash
-# Clone the repository
+# Clone repository
 git clone https://github.com/Ishu6129/AuthAPI.git
 
-# Navigate into the project
+# Move into project
 cd AuthAPI
 
 # Install dependencies
 npm install
 
-# Run in development
+# Run dev server
 npm run dev
 ```
 
+
 ## 🔗 API Endpoints
 
-### 🧑‍💻 Auth Routes
+### 🧑‍💻 Authentication
 
 | Method | Endpoint               | Description                  |
 | ------ | ---------------------- | ---------------------------- |
-| POST   | `/api/auth/register`   | Register a new user          |
+| POST   | `/api/auth/register`   | Register user                |
 | POST   | `/api/auth/login`      | Login user                   |
 | GET    | `/api/auth/get-me`     | Get current user (protected) |
 | POST   | `/api/auth/refresh`    | Refresh access token         |
-| POST   | `/api/auth/logout`     | Logout (current session)     |
-| POST   | `/api/auth/logout-all` | Logout from all devices      |
+| POST   | `/api/auth/logout`     | Logout current session       |
+| POST   | `/api/auth/logout-all` | Logout all sessions          |
 
 
-### 📧 OTP & Email Verification
+### 📧 Email & OTP
 
-| Method | Endpoint                 | Description           |
-| ------ | ------------------------ | --------------------- |
-| POST   | `/api/auth/verify-email` | Verify email with OTP |
-| POST   | `/api/auth/new-otp`      | Request a new OTP     |
+| Method | Endpoint                    | Description              |
+| ------ | --------------------------- | ------------------------ |
+| POST   | `/api/auth/verify-email`    | Verify email using OTP   |
+| POST   | `/api/auth/new-otp`         | Request new OTP          |
+| POST   | `/api/auth/forgot-password` | Send reset OTP           |
+| POST   | `/api/auth/reset-password`  | Reset password using OTP |
 
 
 ## 🔐 Authentication Flow
 
-1. User registers → OTP sent to email
-2. User verifies email using OTP
+1. User registers → OTP sent via email queue
+2. User verifies email
 3. User logs in → receives:
 
-   * Access Token (short-lived)
-   * Refresh Token (stored in HTTP-only cookie)
-4. Refresh token is used to generate new access tokens
-5. Sessions are securely stored and managed
+   * Access Token (15 min)
+   * Refresh Token (7 days, stored in cookie)
+4. Session created with:
+
+   * IP address
+   * User-Agent
+5. Refresh token rotates on every refresh request
+6. Logout revokes session(s)
+
+---
+
+## ⚠️ Error Handling
+
+Centralized error handling via middleware:
+
+* MongoDB duplicate key → `409 Conflict`
+* Validation errors → `400 Bad Request`
+* JWT errors → `401 Unauthorized`
+* Default → `500 Internal Server Error`
+
+Handled automatically using `asyncHandler` wrapper.
 
 
-## 🧠 Security Features
+## ⚡ Background Jobs (BullMQ)
 
-* Password hashing using bcrypt
-* Hashed refresh tokens stored in database
-* OTP expiration & retry limits
-* Secure HTTP-only cookies
-* Session revocation support
-* Login alert notifications
+* Email sending is offloaded to Redis queue
+* Worker processes jobs asynchronously
+* Im
+
+Worker runs in same process (can be separated for scaling).
+
+
+## 🧠 Key Concepts in Your Code
+
+### ✅ `asyncHandler`
+
+* Wraps async controllers
+* Automatically forwards errors to `errorHandler`
+
+### ✅ `errorHandler`
+
+* Global middleware
+* Handles all thrown errors cleanly
+
+### ✅ Session Model
+
+* Tracks device-based login
+* Stores hashed refresh tokens
+* Enables secure logout
+
+
+## 🛡️ Security Features
+
+* Hashed passwords (bcrypt)
+* Hashed refresh tokens (SHA-256)
+* HTTP-only cookies
+* OTP expiration (10 min)
+* Max OTP attempts (5)
+* Session-based authentication
+* Login alert emails
 
 
 ## 🧪 Scripts
 
 ```bash
-npm run dev     # Run with nodemon
+npm run dev     # Development (nodemon)
 ```
 
 
 ## 📄 License
 
-This project is licensed under the MIT License.
+MIT License
+
 
 ## 💡 Author
 
-**Ishu**
+**Ishu Agrawal**
 GitHub: [https://github.com/Ishu6129](https://github.com/Ishu6129)
+

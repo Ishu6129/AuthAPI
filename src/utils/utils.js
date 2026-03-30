@@ -20,3 +20,13 @@ export function getLoginAlertHtmlContent() {
         </div>
     `;
 }
+
+export function getPasswordResetHtmlContent(otp){
+    return `
+        <div style="font-family: Arial, sans-serif; text-align: center; padding: 20px;">
+            <h2 style="color: #333;">Password Reset Request</h2>
+            <p style="font-size: 18px; color: #555;">We received a request to reset your password. Use the following OTP to reset your password:</p>
+            <div style="font-size: 24px; font-weight: bold; color: #007BFF; margin: 20px 0;">${otp}</div>
+        </div>
+    `;
+}

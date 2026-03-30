@@ -6,10 +6,11 @@ import config from '../config/config.js';
 import sessionModel from '../models/session.model.js';
 import {sendEmail} from '../services/email.service.js';
 import Otp from '../models/otp.model.js';
-import {generateOtp,getOtpHtmlContent,getLoginAlertHtmlContent} from '../utils/utils.js';
+import {generateOtp,getOtpHtmlContent,getLoginAlertHtmlContent,getPasswordResetHtmlContent} from '../utils/utils.js';
+import asyncHandler from '../utils/asyncHandler.js';
 import { emailQueue } from '../queues/emailQueue.js';
 
-export async function register(req, res) {
+export const register = asyncHandler(async (req, res) => {
     const {username,email,password}=req.body;
     if (!username || !email || !password) {
         return res.status(400).json({
@@ -65,10 +66,13 @@ export async function register(req, res) {
             verified:newUser.verified
         }
     })
-}
+})
 
-export async function login(req,res){
+export const login = asyncHandler(async (req, res) => {
     const {email,password}=req.body;
+    if (!email || !password) {
+        return res.status(400).json({ message: "All fields required" });
+    }
     const user=await User.findOne({email}).select("+password");
     if(!user){
         return res.status(401).json({
@@ -76,7 +80,6 @@ export async function login(req,res){
             message:"Invalid email or password"
         })
     }
-
     if(!user.verified){
         return res.status(403).json({
             success:false,
@@ -91,6 +94,26 @@ export async function login(req,res){
             message:"Invalid email or password"
         })
     }
+    const existingSession = await sessionModel.findOne({
+        user: user._id,
+        ip: req.ip,
+        userAgent: req.headers['user-agent'],
+        revoked: false
+    });
+    if (existingSession) {
+        const accessToken = jwt.sign(
+            { id: user._id, sessionId: existingSession._id },
+            config.JWT_SECRET,
+            { expiresIn: "15m" }
+        );
+
+        return res.status(200).json({
+            success: true,
+            message: "Logged in successfully",
+            accessToken
+        });
+    }
+
     const refreshToken=jwt.sign({id:user._id},config.JWT_SECRET,{expiresIn:"7d"})
     const refreshTokenHash=crypto.createHash("sha256").update(refreshToken).digest("hex");
    
@@ -123,9 +146,9 @@ export async function login(req,res){
         message:"Logged in successfully",
         accessToken
     })
-}
+})
 
-export async function getMe(req, res) {
+export const getMe = asyncHandler(async (req, res) => {
     const user = await User.findById(req.user.id);
     if (!user) {
         return res.status(404).json({
@@ -137,9 +160,9 @@ export async function getMe(req, res) {
         message: "User fetched successfully",
         user
     });
-}
+})
 
-export async function refreshToken(req,res){
+export const refreshToken= asyncHandler(async (req, res) => {
     const refreshToken=req.cookies.refreshToken;
     if(!refreshToken){
         return res.status(401).json({
@@ -183,9 +206,9 @@ export async function refreshToken(req,res){
         success:true,
         newAccessToken
     })
-}
+})
 
-export async function logout(req,res){
+export const logout = asyncHandler(async (req, res) => {
     const session = await sessionModel.findById(req.user.sessionId);
     if(session){
         session.revoked = true;
@@ -197,19 +220,19 @@ export async function logout(req,res){
         success:true,
         message:"Logged out successfully"
     });
-}
+})
 
 
-export async function logoutAll(req,res){
+export const logoutAll = asyncHandler(async (req, res) => {
     await sessionModel.updateMany({user: req.user.id, revoked:false}, {revoked:true});
     res.clearCookie("refreshToken");
     res.status(200).json({
         success:true,
         message:"Logged out from all sessions successfully"
     });
-}
+})
 
-export async function requestAnotherOtp(req,res){
+export const requestAnotherOtp= asyncHandler(async (req, res) => {
     const {email}=req.body;
     const user=await User.findOne({email});
     if(!user){
@@ -243,10 +266,10 @@ export async function requestAnotherOtp(req,res){
         success:true,
         message:"New OTP sent to your email"
     })
-}
+})
 
 
-export async function verifyEmail(req,res){
+export const verifyEmail = asyncHandler(async (req, res) => {
     const {email,otp}=req.body;
     
     const otpHash=crypto.createHash("sha256").update(otp).digest("hex");
@@ -289,4 +312,94 @@ export async function verifyEmail(req,res){
         success:true,
         message:"Email verified successfully"
     })
-}
+})
+
+export const forgotPassword = asyncHandler(async (req, res) => {
+    const {email}=req.body;
+    const user=await User.findOne({email});
+    if(!user){
+        return res.status(404).json({
+            success:false,
+            message:"User with this email not found"
+        })
+    }
+    const otp=generateOtp();
+    const html=getPasswordResetHtmlContent(otp);
+    const otpHash=crypto.createHash("sha256").update(otp).digest("hex");
+    await Otp.findOneAndUpdate(
+        { email },
+        {
+            email,
+            user: user._id,
+            otpHash,
+            attempts: 0,
+            expiresAt: Date.now() + 10 * 60 * 1000
+        },
+        { upsert: true, new: true }
+    );
+    await emailQueue.add('sendEmail', {
+        to: email,
+        subject: "Password Reset OTP",
+        text: "Here is your OTP to reset your password.",
+        html: html
+    });
+    res.status(200).json({
+        success:true,
+        message:"OTP sent to your email for password reset"
+    })
+})
+
+export const resetPassword = asyncHandler(async (req, res) => {
+    const {email,otp,newPassword}=req.body;
+    if(!email || !otp || !newPassword){
+        return res.status(400).json({
+            success:false,
+            message:"Email, OTP and new password are required"
+        })
+    }
+    const otpHash=crypto.createHash("sha256").update(otp).digest("hex");
+    const otpDoc=await Otp.findOne({email});
+    if (!otpDoc) {
+        return res.status(400).json({
+            success:false,
+            message:"OTP not found. Please request a new one."
+        });
+    }
+    if (otpDoc.expiresAt < Date.now()) {
+        await Otp.deleteOne({ _id: otpDoc._id });
+        return res.status(400).json({
+            success:false,
+            message:"OTP expired"
+        });
+    }
+    if (otpDoc.attempts >= 5) {
+        await Otp.deleteOne({ _id: otpDoc._id });
+        return res.status(400).json({
+            success:false,
+            message:"Too many attempts. Request new OTP."
+        });
+    }
+    if (otpDoc.otpHash !== otpHash) {
+        otpDoc.attempts += 1;
+        await otpDoc.save();
+        return res.status(400).json({
+            success:false,
+            message:"Invalid OTP"
+        });
+    }
+    const salt = await bcrypt.genSalt(10);
+    const hashPassword = await bcrypt.hash(newPassword, salt);
+    await User.findByIdAndUpdate(otpDoc.user,{password:hashPassword});
+    await Otp.deleteMany({user:otpDoc.user});
+
+    await emailQueue.add('sendEmail', {
+        to: email,
+        subject: "Password Reset Successful",
+        text: "Your password has been reset successfully.",
+        html: "<p>Your password has been reset successfully. If you did not perform this action, please contact us immediately.</p>"
+    });
+    res.status(200).json({
+        success:true,
+        message:"Password reset successfully"
+    })
+})

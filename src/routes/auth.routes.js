@@ -44,4 +44,14 @@ authRouter.post("/verify-email",authController.verifyEmail);
 */
 authRouter.post("/new-otp",authController.requestAnotherOtp);
 
+/**
+ * POST /api/auth/forgot-password
+*/
+authRouter.post("/forgot-password",authController.forgotPassword);
+
+/**
+ * POST /api/auth/reset-password
+*/
+authRouter.post("/reset-password",authController.resetPassword);
+
 export default authRouter;
