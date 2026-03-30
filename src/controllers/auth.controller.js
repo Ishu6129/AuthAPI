@@ -6,17 +6,12 @@ import config from '../config/config.js';
 import sessionModel from '../models/session.model.js';
 import {sendEmail} from '../services/email.service.js';
 import Otp from '../models/otp.model.js';
-import {generateOtp,getOtpHtmlContent,getLoginAlertHtmlContent,getPasswordResetHtmlContent} from '../utils/utils.js';
+import {generateOtp,getOtpHtmlContent,getLoginAlertHtmlContent,getPasswordResetHtmlContent,hash} from '../utils/utils.js';
 import asyncHandler from '../utils/asyncHandler.js';
 import { emailQueue } from '../queues/emailQueue.js';
 
 export const register = asyncHandler(async (req, res) => {
     const {username,email,password}=req.body;
-    if (!username || !email || !password) {
-        return res.status(400).json({
-            message: "All fields required"
-        });
-    }
     const isAlreadyExist=await User.findOne({
         $or:[
             {username},{email}
@@ -31,14 +26,15 @@ export const register = asyncHandler(async (req, res) => {
     const salt = await bcrypt.genSalt(10);
     const hashPassword = await bcrypt.hash(password, salt);
 
-    const newUser=new User({
-        username,email,password:hashPassword
-    })
-    await newUser.save();
+    const newUser = await User.create({
+        username,
+        email,
+        password: hashPassword
+    });
 
     const otp=generateOtp();
     const html=getOtpHtmlContent(otp);
-    const otpHash=crypto.createHash("sha256").update(otp).digest("hex");
+    const otpHash=hash(otp);
     await Otp.findOneAndUpdate(
         { email },
         {
@@ -70,9 +66,6 @@ export const register = asyncHandler(async (req, res) => {
 
 export const login = asyncHandler(async (req, res) => {
     const {email,password}=req.body;
-    if (!email || !password) {
-        return res.status(400).json({ message: "All fields required" });
-    }
     const user=await User.findOne({email}).select("+password");
     if(!user){
         return res.status(401).json({
@@ -115,7 +108,7 @@ export const login = asyncHandler(async (req, res) => {
     }
 
     const refreshToken=jwt.sign({id:user._id},config.JWT_SECRET,{expiresIn:"7d"})
-    const refreshTokenHash=crypto.createHash("sha256").update(refreshToken).digest("hex");
+    const refreshTokenHash=hash(refreshToken);
    
     const session=new sessionModel({
         user:user._id,
@@ -157,6 +150,7 @@ export const getMe = asyncHandler(async (req, res) => {
         });
     }
     res.status(200).json({
+        success: true,
         message: "User fetched successfully",
         user
     });
@@ -181,7 +175,7 @@ export const refreshToken= asyncHandler(async (req, res) => {
         });
     }
 
-    const refreshTokenHash=crypto.createHash("sha256").update(refreshToken).digest("hex");
+    const refreshTokenHash=hash(refreshToken);
     const session=await sessionModel.findOne({refreshToken:refreshTokenHash,revoked:false});
     if(!session){
         return res.status(401).json({
@@ -192,7 +186,7 @@ export const refreshToken= asyncHandler(async (req, res) => {
     const newAccessToken=jwt.sign({id:decoded.id,sessionId: session._id },config.JWT_SECRET,{expiresIn:"15m"})
     
     const newRefreshToken=jwt.sign({id:decoded.id},config.JWT_SECRET,{expiresIn:"7d"})
-    const newRefreshTokenHash=crypto.createHash("sha256").update(newRefreshToken).digest("hex");
+    const newRefreshTokenHash=hash(newRefreshToken);
     session.refreshToken=newRefreshTokenHash;
     await session.save();
     res.cookie("refreshToken",newRefreshToken,{
@@ -204,6 +198,7 @@ export const refreshToken= asyncHandler(async (req, res) => {
 
     res.status(200).json({
         success:true,
+        message:"Token refreshed successfully",
         newAccessToken
     })
 })
@@ -244,7 +239,7 @@ export const requestAnotherOtp= asyncHandler(async (req, res) => {
     await Otp.deleteMany({user:user._id});
     const otp=generateOtp();
     const html=getOtpHtmlContent(otp);
-    const otpHash=crypto.createHash("sha256").update(otp).digest("hex");
+    const otpHash=hash(otp);
     await Otp.findOneAndUpdate(
         { email },
         {
@@ -272,7 +267,7 @@ export const requestAnotherOtp= asyncHandler(async (req, res) => {
 export const verifyEmail = asyncHandler(async (req, res) => {
     const {email,otp}=req.body;
     
-    const otpHash=crypto.createHash("sha256").update(otp).digest("hex");
+    const otpHash=hash(otp);
     const otpDoc=await Otp.findOne({email});
     if (!otpDoc) {
         return res.status(400).json({
@@ -325,7 +320,7 @@ export const forgotPassword = asyncHandler(async (req, res) => {
     }
     const otp=generateOtp();
     const html=getPasswordResetHtmlContent(otp);
-    const otpHash=crypto.createHash("sha256").update(otp).digest("hex");
+    const otpHash=hash(otp);
     await Otp.findOneAndUpdate(
         { email },
         {
@@ -351,13 +346,7 @@ export const forgotPassword = asyncHandler(async (req, res) => {
 
 export const resetPassword = asyncHandler(async (req, res) => {
     const {email,otp,newPassword}=req.body;
-    if(!email || !otp || !newPassword){
-        return res.status(400).json({
-            success:false,
-            message:"Email, OTP and new password are required"
-        })
-    }
-    const otpHash=crypto.createHash("sha256").update(otp).digest("hex");
+    const otpHash=hash(otp);
     const otpDoc=await Otp.findOne({email});
     if (!otpDoc) {
         return res.status(400).json({

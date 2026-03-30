@@ -1,3 +1,4 @@
+import crypto from "crypto";
 export function generateOtp() {
     return Math.floor(100000 + Math.random() * 900000).toString();
 }
@@ -29,4 +30,8 @@ export function getPasswordResetHtmlContent(otp){
             <div style="font-size: 24px; font-weight: bold; color: #007BFF; margin: 20px 0;">${otp}</div>
         </div>
     `;
+}
+
+export function hash(value) {
+    return crypto.createHash("sha256").update(value).digest("hex");
 }

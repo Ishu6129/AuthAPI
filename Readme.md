@@ -2,55 +2,58 @@
 
 **A secure, scalable, and production-ready authentication system built with Node.js and Express.**
 
-AuthAPI provides a complete authentication workflow including JWT-based authentication, refresh token rotation, OTP email verification, session tracking, and background job processing using Redis + BullMQ.
+AuthAPI provides a complete authentication workflow including JWT-based authentication, refresh token rotation, OTP email verification, session tracking, request validation, and background job processing using Redis + BullMQ.
+
 
 ## 🚀 Features
 
 ### 🔑 Authentication
 
-* User Registration & Login
-* JWT-based Authentication (Access + Refresh Tokens)
-* Refresh Token Rotation
-* Secure Logout (single session & all sessions)
+- User Registration & Login
+- JWT-based Authentication (Access + Refresh Tokens)
+- Refresh Token Rotation
+- Secure Logout (single session & all sessions)
 
 ### 📧 Email & OTP
 
-* OTP-based Email Verification
-* Resend OTP support
-* Password Reset via OTP
-* Login Alert Emails
+- OTP-based Email Verification
+- Resend OTP support
+- Password Reset via OTP
+- Login Alert Emails
 
 ### 🧠 Session Management
 
-* Per-device session tracking (IP + User-Agent)
-* Refresh tokens stored securely (hashed)
-* Session revocation support
+- Per-device session tracking (IP + User-Agent)
+- Refresh tokens stored securely (hashed)
+- Session revocation support
 
 ### ⚙️ Background Processing
 
-* Email queue using BullMQ
-* Redis-backed job processing
-* Worker runs in same process (can be separated in production)
+- Email queue using BullMQ
+- Redis-backed job processing
+- Worker runs in same process (can be separated in production)
 
 ### 🛡️ Security
 
-* Password hashing using bcrypt
-* HTTP-only secure cookies
-* Token expiration handling
-* Centralized error handling middleware
-* Rate-limited OTP attempts
+- Password hashing using bcrypt
+- HTTP-only secure cookies
+- Token expiration handling
+- Centralized error handling middleware
+- Rate-limited OTP attempts
+- Input validation using Joi (clean + sanitized requests)
 
 
 ## 🛠️ Tech Stack
 
-* Node.js
-* Express.js
-* MongoDB + Mongoose
-* JWT (jsonwebtoken)
-* bcryptjs
-* Redis
-* BullMQ
-* Nodemailer (OAuth2)
+- Node.js
+- Express.js
+- MongoDB + Mongoose
+- JWT (jsonwebtoken)
+- bcryptjs
+- Redis
+- BullMQ
+- Nodemailer (OAuth2)
+- Joi (Validation)
 
 
 ## 📁 Project Structure
@@ -60,12 +63,13 @@ AuthAPI/
 │── src/
 │   │── config/          # DB & environment configs
 │   │── controllers/     # Business logic (auth flow)
-│   │── middleware/      # Auth + error handling
+│   │── middleware/      # Auth + validation + error handling
 │   │── models/          # Mongoose schemas
 │   │── queues/          # BullMQ queues & workers
 │   │── routes/          # API routes
 │   │── services/        # Email service
 │   │── utils/           # Helpers (OTP, asyncHandler)
+│   │── validators/      # Joi schemas
 │   │── app.js           # Express app
 │
 │── server.js            # Entry point
@@ -73,7 +77,6 @@ AuthAPI/
 │── package.json
 │── README.md
 ```
-
 
 ## ⚙️ Environment Variables
 
@@ -150,8 +153,6 @@ npm run dev
 5. Refresh token rotates on every refresh request
 6. Logout revokes session(s)
 
----
-
 ## ⚠️ Error Handling
 
 Centralized error handling via middleware:
@@ -161,19 +162,36 @@ Centralized error handling via middleware:
 * JWT errors → `401 Unauthorized`
 * Default → `500 Internal Server Error`
 
-Handled automatically using `asyncHandler` wrapper.
+Handled automatically using `asyncHandler`.
+
+## Request Validation
+
+All incoming requests are validated using Joi schemas via a reusable middleware:
+
+```bash
+validate("register")
+validate("login")
+validate("email")
+```
+
+### Features:
+
+* Prevents invalid data from reaching controllers
+* Returns all validation errors (`abortEarly: false`)
+* Removes unwanted fields (`stripUnknown: true`)
+* Ensures clean and secure request payloads
 
 
 ## ⚡ Background Jobs (BullMQ)
 
 * Email sending is offloaded to Redis queue
 * Worker processes jobs asynchronously
-* Im
+* Improves performance & scalability
 
-Worker runs in same process (can be separated for scaling).
+Worker currently runs in the same process (can be separated in production).
 
 
-## 🧠 Key Concepts in Your Code
+## 🧠 Key Concepts
 
 ### ✅ `asyncHandler`
 
@@ -183,13 +201,19 @@ Worker runs in same process (can be separated for scaling).
 ### ✅ `errorHandler`
 
 * Global middleware
-* Handles all thrown errors cleanly
+* Handles all errors (Mongo, JWT, validation, etc.)
+
+### ✅ `validate`
+
+* Middleware for request validation
+* Uses Joi schemas
+* Cleans and validates request body
 
 ### ✅ Session Model
 
 * Tracks device-based login
 * Stores hashed refresh tokens
-* Enables secure logout
+* Enables secure logout & session control
 
 
 ## 🛡️ Security Features
@@ -200,8 +224,8 @@ Worker runs in same process (can be separated for scaling).
 * OTP expiration (10 min)
 * Max OTP attempts (5)
 * Session-based authentication
+* Input sanitization via Joi
 * Login alert emails
-
 
 ## 🧪 Scripts
 
@@ -209,14 +233,15 @@ Worker runs in same process (can be separated for scaling).
 npm run dev     # Development (nodemon)
 ```
 
+---
 
 ## 📄 License
 
 MIT License
 
+---
 
 ## 💡 Author
 
 **Ishu Agrawal**
 GitHub: [https://github.com/Ishu6129](https://github.com/Ishu6129)
-
