@@ -2,58 +2,93 @@
 
 **A secure, scalable, and production-ready authentication system built with Node.js and Express.**
 
-AuthAPI provides a complete authentication workflow including JWT-based authentication, refresh token rotation, OTP email verification, session tracking, request validation, and background job processing using Redis + BullMQ.
+AuthAPI provides a complete authentication workflow including JWT-based authentication, refresh token rotation, OTP email verification, session tracking, Redis-backed rate limiting, request validation, and background job processing using Redis + BullMQ.
 
 
 ## 🚀 Features
 
 ### 🔑 Authentication
 
-- User Registration & Login
-- JWT-based Authentication (Access + Refresh Tokens)
-- Refresh Token Rotation
-- Secure Logout (single session & all sessions)
+* User Registration & Login
+* JWT-based Authentication (Access + Refresh Tokens)
+* Refresh Token Rotation
+* Secure Logout (single session & all sessions)
 
 ### 📧 Email & OTP
 
-- OTP-based Email Verification
-- Resend OTP support
-- Password Reset via OTP
-- Login Alert Emails
+* OTP-based Email Verification
+* Resend OTP support
+* Password Reset via OTP
+* Login Alert Emails
 
 ### 🧠 Session Management
 
-- Per-device session tracking (IP + User-Agent)
-- Refresh tokens stored securely (hashed)
-- Session revocation support
+* Per-device session tracking (IP + User-Agent)
+* Refresh tokens stored securely (hashed)
+* Session revocation support
 
 ### ⚙️ Background Processing
 
-- Email queue using BullMQ
-- Redis-backed job processing
-- Worker runs in same process (can be separated in production)
+* Email queue using BullMQ
+* Redis-backed job processing
+* Worker runs in same process (can be separated in production)
 
 ### 🛡️ Security
 
-- Password hashing using bcrypt
-- HTTP-only secure cookies
-- Token expiration handling
-- Centralized error handling middleware
-- Rate-limited OTP attempts
-- Input validation using Joi (clean + sanitized requests)
+* Password hashing using bcrypt
+* HTTP-only secure cookies
+* Token expiration handling
+* Centralized error handling middleware
+* Input validation using Joi
+* Redis-based rate limiting (global + route-specific)
+* OTP expiration (10 min)
+* Max OTP attempts (5)
+* Login alert emails
+
+
+## 🚦 Rate Limiting
+
+To prevent abuse, brute-force attacks, and spam, the API uses Redis-backed rate limiting with fine-grained control per route.
+
+### 🔹 Global Limiter
+
+* Applied to all routes
+* **100 requests per minute per IP**
+
+### 🔹 Auth Limiter
+
+* Applied to sensitive auth routes (register, refresh, forgot password, etc.)
+* **20 requests per 15 minutes per IP + email**
+
+### 🔹 Login Limiter (Strict)
+
+* Applied only to login route
+* **5 attempts per 15 minutes per IP + email**
+* Protects against brute-force attacks
+
+### 🔹 OTP Limiter
+
+* Applied to OTP-related routes
+* **10 requests per 10 minutes per IP + email + endpoint**
+* Prevents OTP spamming
+
+### 🔹 Storage
+
+* All rate limits are stored in **Redis**
+* Ensures scalability across multiple instances
 
 
 ## 🛠️ Tech Stack
 
-- Node.js
-- Express.js
-- MongoDB + Mongoose
-- JWT (jsonwebtoken)
-- bcryptjs
-- Redis
-- BullMQ
-- Nodemailer (OAuth2)
-- Joi (Validation)
+* Node.js
+* Express.js
+* MongoDB + Mongoose
+* JWT (jsonwebtoken)
+* bcryptjs
+* Redis
+* BullMQ
+* Nodemailer (OAuth2)
+* Joi (Validation)
 
 
 ## 📁 Project Structure
@@ -63,7 +98,7 @@ AuthAPI/
 │── src/
 │   │── config/          # DB & environment configs
 │   │── controllers/     # Business logic (auth flow)
-│   │── middleware/      # Auth + validation + error handling
+│   │── middleware/      # Auth + validation + rate limiting
 │   │── models/          # Mongoose schemas
 │   │── queues/          # BullMQ queues & workers
 │   │── routes/          # API routes
@@ -77,6 +112,7 @@ AuthAPI/
 │── package.json
 │── README.md
 ```
+
 
 ## ⚙️ Environment Variables
 
@@ -153,6 +189,7 @@ npm run dev
 5. Refresh token rotates on every refresh request
 6. Logout revokes session(s)
 
+
 ## ⚠️ Error Handling
 
 Centralized error handling via middleware:
@@ -164,7 +201,8 @@ Centralized error handling via middleware:
 
 Handled automatically using `asyncHandler`.
 
-## Request Validation
+
+## 🧾 Request Validation
 
 All incoming requests are validated using Joi schemas via a reusable middleware:
 
@@ -172,6 +210,7 @@ All incoming requests are validated using Joi schemas via a reusable middleware:
 validate("register")
 validate("login")
 validate("email")
+validate("resetPassword")
 ```
 
 ### Features:
@@ -193,17 +232,17 @@ Worker currently runs in the same process (can be separated in production).
 
 ## 🧠 Key Concepts
 
-### ✅ `asyncHandler`
+### ✅ asyncHandler
 
 * Wraps async controllers
-* Automatically forwards errors to `errorHandler`
+* Automatically forwards errors to global handler
 
-### ✅ `errorHandler`
+### ✅ errorHandler
 
 * Global middleware
 * Handles all errors (Mongo, JWT, validation, etc.)
 
-### ✅ `validate`
+### ✅ validate
 
 * Middleware for request validation
 * Uses Joi schemas
@@ -215,17 +254,7 @@ Worker currently runs in the same process (can be separated in production).
 * Stores hashed refresh tokens
 * Enables secure logout & session control
 
-
-## 🛡️ Security Features
-
-* Hashed passwords (bcrypt)
-* Hashed refresh tokens (SHA-256)
-* HTTP-only cookies
-* OTP expiration (10 min)
-* Max OTP attempts (5)
-* Session-based authentication
-* Input sanitization via Joi
-* Login alert emails
+---
 
 ## 🧪 Scripts
 
@@ -233,15 +262,13 @@ Worker currently runs in the same process (can be separated in production).
 npm run dev     # Development (nodemon)
 ```
 
----
 
 ## 📄 License
 
 MIT License
 
----
 
 ## 💡 Author
 
 **Ishu Agrawal**
-GitHub: [https://github.com/Ishu6129](https://github.com/Ishu6129)
+GitHub: https://github.com/Ishu6129
