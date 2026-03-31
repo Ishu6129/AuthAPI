@@ -13,6 +13,6 @@ app.use(cookieParser())
 
 app.use("/api/auth",authRouter);
 app.use(errorHandler);
-
+// app.set("trust proxy", 1); // if behind a proxy (e.g., Heroku, Nginx) for correct IP and secure cookies
 
 export default app;

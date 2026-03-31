@@ -3,7 +3,7 @@ import IORedis from 'ioredis';
 import { sendEmail } from '../services/email.service.js';
 import config from "../config/config.js";
 
-const connection = new IORedis(config.REDIS_URL, {
+export const connection = new IORedis(config.REDIS_URL, {
   maxRetriesPerRequest: null,
 });
 
