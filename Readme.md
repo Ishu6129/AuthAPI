@@ -1,6 +1,6 @@
 # 🔐 AuthAPI
 
-**A secure, scalable, and production-ready authentication system built with Node.js and Express.**
+**An authentication system built with Node.js, Express, MongoDB, Redis, and React.**
 
 AuthAPI provides a complete authentication workflow including JWT-based authentication, refresh token rotation, OTP email verification, session tracking, Redis-backed rate limiting, request validation, and background job processing using Redis + BullMQ.
 
@@ -108,9 +108,16 @@ AuthAPI/
 │   │── app.js           # Express app
 │
 │── server.js            # Entry point
-│── .env
 │── package.json
 │── README.md
+│── client/               # React frontend
+│   │── src/
+│   │   │── components/
+│   │   │── App.jsx
+│   │   │── api.js
+│   │   │── main.jsx
+│   │   │── styles.css
+│   │── package.json
 ```
 
 
@@ -160,6 +167,91 @@ npm run dev
 ```
 
 Run the backend with `npm run dev` from the project root. The client uses a Vite proxy to forward `/api` requests to `http://localhost:5000`.
+
+## Deployed Services
+
+Frontend:
+
+```text
+https://auth-api-eight-roan.vercel.app/
+```
+
+Backend:
+
+```text
+https://authapi-9tdv.onrender.com
+```
+
+Backend health check:
+
+```text
+https://authapi-9tdv.onrender.com/api/health
+```
+
+### Deploy the Backend on Render
+
+Create a Render Web Service connected to this repository with these exact settings:
+
+```text
+Language: Node
+Branch: master
+Root Directory: blank
+Build Command: npm install
+Start Command: node server.js
+```
+
+Add these environment variables in Render. Use new production credentials and do not commit them:
+
+```text
+MONGO_URL=your_production_mongodb_url
+JWT_SECRET=your_long_random_secret
+EMAIL_USER=your_email_address
+CLIENT_ID=your_google_client_id
+CLIENT_SECRET=your_google_client_secret
+REFRESH_TOKEN=your_google_refresh_token
+REDIS_URL=your_production_redis_url
+NODE_ENV=production
+```
+
+Do not add `MONGO_URL`, `JWT_SECRET`, `REDIS_URL`, `CLIENT_SECRET`, or `REFRESH_TOKEN` to the frontend.
+
+### Deploy the Frontend on Vercel
+
+Create a Vercel project from the same repository with:
+
+```text
+Root Directory: client
+Framework Preset: Vite
+Build Command: npm run build
+Output Directory: dist
+```
+
+Add this Vercel environment variable for Production:
+
+```text
+VITE_API_URL=https://authapi-9tdv.onrender.com
+```
+
+Redeploy Vercel after adding or changing this variable. The frontend sends requests to `VITE_API_URL` followed by the backend path, such as `/api/auth/login`.
+
+### Local Frontend Environment
+
+Copy `client/.env.example` to `client/.env` and leave the value empty when using the Vite proxy:
+
+```env
+VITE_API_URL=
+```
+
+Run the backend and frontend in separate terminals:
+
+```bash
+npm run dev
+cd client
+npm run dev
+```
+
+Local frontend URL: `http://localhost:5173`.
+Local backend URL: `http://localhost:5000`.
 
 
 ## 🔗 API Endpoints
@@ -212,25 +304,6 @@ Centralized error handling via middleware:
 * Default → `500 Internal Server Error`
 
 Handled automatically using `asyncHandler`.
-
-
-## 🧾 Request Validation
-
-All incoming requests are validated using Joi schemas via a reusable middleware:
-
-```bash
-validate("register")
-validate("login")
-validate("email")
-validate("resetPassword")
-```
-
-### Features:
-
-* Prevents invalid data from reaching controllers
-* Returns all validation errors (`abortEarly: false`)
-* Removes unwanted fields (`stripUnknown: true`)
-* Ensures clean and secure request payloads
 
 
 ## ⚡ Background Jobs (BullMQ)
