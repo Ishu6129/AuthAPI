@@ -149,6 +149,18 @@ npm install
 npm run dev
 ```
 
+## React Demo
+
+The `client` folder contains a small React interface for registration, email verification, login, protected profile access, token refresh, and logout.
+
+```bash
+cd client
+npm install
+npm run dev
+```
+
+Run the backend with `npm run dev` from the project root. The client uses a Vite proxy to forward `/api` requests to `http://localhost:5000`.
+
 
 ## 🔗 API Endpoints
 
