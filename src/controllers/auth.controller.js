@@ -10,6 +10,13 @@ import {generateOtp,getOtpHtmlContent,getLoginAlertHtmlContent,getPasswordResetH
 import asyncHandler from '../utils/asyncHandler.js';
 import { emailQueue } from '../queues/emailQueue.js';
 
+const cookieOptions = {
+    httpOnly:true,
+    secure:process.env.NODE_ENV === "production",
+    sameSite:process.env.NODE_ENV === "production" ? "none" : "strict",
+    maxAge:7*24*60*60*1000
+};
+
 export const register = asyncHandler(async (req, res) => {
     const {username,email,password}=req.body;
     const isAlreadyExist=await User.findOne({
@@ -119,12 +126,7 @@ export const login = asyncHandler(async (req, res) => {
     await session.save();
     const accessToken=jwt.sign({id:user._id,sessionId:session._id},config.JWT_SECRET,{expiresIn:"15m"})
     
-    res.cookie("refreshToken",refreshToken,{
-        httpOnly:true,
-        secure:true,
-        sameSite:"strict",
-        maxAge:7*24*60*60*1000
-    })
+    res.cookie("refreshToken",refreshToken,cookieOptions)
 
     const loginAlertHtml=getLoginAlertHtmlContent();
     await emailQueue.add('sendEmail', {
@@ -189,12 +191,7 @@ export const refreshToken= asyncHandler(async (req, res) => {
     const newRefreshTokenHash=hash(newRefreshToken);
     session.refreshToken=newRefreshTokenHash;
     await session.save();
-    res.cookie("refreshToken",newRefreshToken,{
-        httpOnly:true,
-        secure:true,
-        sameSite:"strict",
-        maxAge:7*24*60*60*1000
-    })
+    res.cookie("refreshToken",newRefreshToken,cookieOptions)
 
     res.status(200).json({
         success:true,
