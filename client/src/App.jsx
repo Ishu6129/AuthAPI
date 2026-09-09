@@ -128,6 +128,7 @@ function App() {
 
   async function logout(path = "/api/auth/logout") {
     if (busy) return;
+    if (typeof path !== "string") path = "/api/auth/logout";
     setBusy(true);
     startActivity(path.endsWith("all") ? "Logging out everywhere" : "Logging out", path.endsWith("all") ? ["Read current user", "Find all active sessions", "Revoke every session", "Clear refresh cookie", "Clear local session"] : ["Read session ID from access JWT", "Find current session", "Revoke current session", "Clear refresh cookie", "Clear local session"]);
     try {
