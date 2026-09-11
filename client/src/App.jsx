@@ -30,8 +30,14 @@ function App() {
 
   const change = (event) => setForm({ ...form, [event.target.name]: event.target.value });
   const startActivity = (title, steps) => setActivity({ title, steps, status: "working", startedAt: Date.now(), elapsed: 0 });
-  const changeMode = (nextMode) => { setMode(nextMode); setMessage(""); setMessageType("success"); setRetryAfter(0); startActivity(`Opening ${nextMode} form`, ["Changing the authentication view"]); };
-  const showMessage = (text) => { setMessage(text); setMessageType("success"); setRetryAfter(0); setActivity((current) => ({ ...current, status: "success", elapsed: (Date.now() - current.startedAt) / 1000 })); };
+  const changeMode = (nextMode) => {
+    setMode(nextMode);
+    setMessage("");
+    setMessageType("success");
+    setRetryAfter(0);
+    setActivity({ title: `${nextMode[0].toUpperCase()}${nextMode.slice(1)} form ready`, steps: ["Waiting for form submission"], status: "idle", startedAt: 0, elapsed: 0 });
+  };
+  const showMessage = (text) => { setMessage(text); setMessageType("success"); setRetryAfter(0); setActivity((current) => ({ ...current, status: "success", elapsed: current.startedAt ? (Date.now() - current.startedAt) / 1000 : 0 })); };
   const showError = (error) => { setMessage(error.message); setMessageType("error"); setRetryAfter(error.retryAfter || 0); setActivity((current) => ({ ...current, status: "error", elapsed: (Date.now() - current.startedAt) / 1000 })); };
   const completeSession = () => setActivity((current) => ({ ...current, title: "Session active", steps: ["Validate credentials", "Find user account", "Compare bcrypt password", "Check email verification", "Find or create session", "Create access JWT", "Set refresh cookie", "Load protected profile"], status: "success", elapsed: (Date.now() - current.startedAt) / 1000 }));
 
